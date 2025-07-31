@@ -11,6 +11,8 @@ import com.books.books.service.AuthorService;
 import com.books.books.service.BookService;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/books")
 public class BookController {
 
+    private static final Logger logger = LoggerFactory.getLogger(BookController.class);
+
     @Autowired
     private BookService bookService;
 
@@ -31,7 +35,8 @@ public class BookController {
     @PostMapping
     @Transactional
     public ResponseEntity create(@Valid @RequestBody BookCreateRequest body) {
-        System.out.println(body);
+        logger.info("Creating new book: name={}, year={}, author_id={}", 
+                   body.name(), body.year(), body.author_id());
 
         Book book = new Book(body);
 

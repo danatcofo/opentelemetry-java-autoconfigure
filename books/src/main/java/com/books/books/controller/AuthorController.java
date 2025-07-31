@@ -8,6 +8,8 @@ import com.books.books.service.AuthorService;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,13 +23,16 @@ import java.util.Optional;
 @RequestMapping("/author")
 public class AuthorController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthorController.class);
+
     @Autowired
     private AuthorService authorService;
 
     @PostMapping
     @Transactional
     public ResponseEntity create(@Valid @RequestBody AuthorCreateRequest body) {
-        System.out.println(body);
+        logger.info("Creating new author: name={}, location={}, birth={}", 
+                   body.name(), body.location(), body.birth());
         Author author = authorService.createAuthor(new Author(body));
         return new ResponseEntity(author, HttpStatus.CREATED);
     }
