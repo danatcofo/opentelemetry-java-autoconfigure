@@ -1,6 +1,10 @@
 package com.review.review.configs;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.annotation.EnableCaching;
@@ -20,6 +24,8 @@ import java.time.Duration;
 @EnableCaching
 @Configuration
 public class RedisConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
 
     @Value("${spring.redis.host}")
     private String redisHost;
@@ -59,28 +65,56 @@ public class RedisConfig {
             @Override
             public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
                 if (exception instanceof JedisConnectionException) {
-                    System.out.println(exception.getMessage());
+                    // ✅ Record exception on current span
+                    Span currentSpan = Span.current();
+                    currentSpan.recordException(exception);
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache get error");
+                    currentSpan.addEvent("cache.error.get");
+                    
+                    // ✅ Structured logging with correlation
+                    logger.error("Redis cache GET error for key: {} in cache: {}", key, cache.getName(), exception);
                 }
             }
 
             @Override
             public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
                 if (exception instanceof JedisConnectionException) {
-                    System.out.println(exception.getMessage());
+                    // ✅ Record exception on current span  
+                    Span currentSpan = Span.current();
+                    currentSpan.recordException(exception);
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache put error");
+                    currentSpan.addEvent("cache.error.put");
+                    
+                    // ✅ Structured logging with correlation
+                    logger.error("Redis cache PUT error for key: {} in cache: {}", key, cache.getName(), exception);
                 }
             }
 
             @Override
             public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
                 if (exception instanceof JedisConnectionException) {
-                    System.out.println(exception.getMessage());
+                    // ✅ Record exception on current span
+                    Span currentSpan = Span.current();
+                    currentSpan.recordException(exception);
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache evict error");
+                    currentSpan.addEvent("cache.error.evict");
+                    
+                    // ✅ Structured logging with correlation
+                    logger.error("Redis cache EVICT error for key: {} in cache: {}", key, cache.getName(), exception);
                 }
             }
 
             @Override
             public void handleCacheClearError(RuntimeException exception, Cache cache) {
                 if (exception instanceof JedisConnectionException) {
-                    System.out.println(exception.getMessage());
+                    // ✅ Record exception on current span
+                    Span currentSpan = Span.current();
+                    currentSpan.recordException(exception);
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache clear error");
+                    currentSpan.addEvent("cache.error.clear");
+                    
+                    // ✅ Structured logging with correlation
+                    logger.error("Redis cache CLEAR error in cache: {}", cache.getName(), exception);
                 }
             }
         };

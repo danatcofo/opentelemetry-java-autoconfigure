@@ -1,18 +1,25 @@
-version: '3'
 services:
-  jaeger:
-    image: jaegertracing/all-in-one:1.6
-    environment:
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./collector/collector.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "5775:5775/udp"
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
-      - "14268:14268"
-      - "9411:9411"
-      - "4317:4317"
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    depends_on:
+      - jaeger
+
+  # Jaeger backend and UI
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14317:4317"   # OTLP gRPC (external:internal)
+      - "14318:4318"   # OTLP HTTP (external:internal)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
   mysql:
     image: mysql:8.0
     environment:
@@ -44,25 +51,31 @@ services:
 
   spring-gateway:
     build: ./gateway
+    pull_policy: build
     environment: 
       OTEL_SERVICE_NAME: spring-gateway
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://jaeger:9411/api/v2/spans
-      OTEL_METRICS_EXPORTER: none
-      OTEL_LOGS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
       BOOKS_ENDPOINT: http://books-api:8080
       REVIEWS_ENDPOINT: http://reviews-api:8080
     ports:
-      - "9000:8080"      
+      - "9000:8080"
+    depends_on:
+      - otel-collector      
 
   books-api:
     build: ./books
+    pull_policy: build
     environment: 
       OTEL_SERVICE_NAME: books-api
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://jaeger:9411/api/v2/spans
-      OTEL_METRICS_EXPORTER: none
-      OTEL_LOGS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: "com.mysql.cj.jdbc.Driver"
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/books"
       SPRING_DATASOURCE_USERNAME: "books"
@@ -73,15 +86,18 @@ services:
       - "8090:8080"
     depends_on:
       - mysql
+      - otel-collector
 
   reviews-api:
     build: ./review
+    pull_policy: build
     environment: 
       OTEL_SERVICE_NAME: reviews-api
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://jaeger:9411/api/v2/spans
-      OTEL_METRICS_EXPORTER: none
-      OTEL_LOGS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: "com.mysql.cj.jdbc.Driver"
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-reviews:3306/reviews"
       SPRING_DATASOURCE_USERNAME: "reviews"
@@ -96,6 +112,7 @@ services:
       - "8070:8080"
     depends_on:
       - mysql-reviews
+      - otel-collector
 
 volumes:
   mysql_data:
