@@ -8,10 +8,11 @@ set -e
 # Configuration
 TRAFFIC_SCRIPT="./generate_traffic.sh"
 REDIS_CONTAINER_NAME="opentelemetry-java-autoconfigure-redis-1"
+MYSQL_CONTAINER_NAME="opentelemetry-java-autoconfigure-mysql-1"
 MIN_WAIT_BEFORE_CHAOS=30    # Minimum seconds before introducing chaos
 MAX_WAIT_BEFORE_CHAOS=60    # Maximum seconds before introducing chaos
-CHAOS_DURATION=30           # How long to keep Redis down (seconds)
-RECOVERY_WAIT=20            # Time to wait after Redis recovery before ending
+CHAOS_DURATION=30           # How long to keep services down (seconds)
+RECOVERY_WAIT=20            # Time to wait after service recovery before ending
 
 # Colors for output
 RED='\033[0;31m'
@@ -80,6 +81,27 @@ wait_for_redis() {
     return 1
 }
 
+# Function to wait for MySQL to be ready
+wait_for_mysql() {
+    print_status "Waiting for MySQL to be ready..."
+    local max_attempts=60
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        if docker exec "$MYSQL_CONTAINER_NAME" mysqladmin ping -h localhost --silent > /dev/null 2>&1; then
+            print_success "MySQL is ready!"
+            return 0
+        fi
+        
+        echo -n "."
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    print_error "MySQL failed to become ready after $max_attempts seconds"
+    return 1
+}
+
 # Function to stop Redis container
 stop_redis() {
     print_chaos "🔥 INTRODUCING CHAOS: Stopping Redis service..."
@@ -130,6 +152,56 @@ start_redis() {
     fi
 }
 
+# Function to stop MySQL container
+stop_mysql() {
+    print_chaos "🔥 INTRODUCING CHAOS: Stopping MySQL service..."
+    
+    if is_container_running "$MYSQL_CONTAINER_NAME"; then
+        docker stop "$MYSQL_CONTAINER_NAME" > /dev/null 2>&1
+        print_chaos "💥 MySQL service STOPPED - Database failures expected!"
+        
+        # Show what to expect
+        echo
+        print_warning "Expected OpenTelemetry traces during MySQL failure:"
+        echo "  ❌ Database connection errors in books service"
+        echo "  ❌ SQLException spans"
+        echo "  ❌ ERROR status spans with database exception details"
+        echo "  ❌ Connection pool exhaustion traces"
+        echo "  ❌ Service degradation patterns"
+        echo
+    else
+        print_error "MySQL container is not running!"
+        return 1
+    fi
+}
+
+# Function to start MySQL container
+start_mysql() {
+    print_recovery "🔧 RECOVERY: Starting MySQL service..."
+    
+    if ! is_container_running "$MYSQL_CONTAINER_NAME"; then
+        docker start "$MYSQL_CONTAINER_NAME" > /dev/null 2>&1
+        
+        if wait_for_mysql; then
+            print_recovery "✅ MySQL service RECOVERED - Database operations resuming!"
+            
+            # Show what to expect
+            echo
+            print_success "Expected OpenTelemetry traces during MySQL recovery:"
+            echo "  ✅ Successful database operations resuming"
+            echo "  ✅ Connection pool recovery spans"
+            echo "  ✅ Service health improvement patterns"
+            echo "  ✅ Performance comparison before/during/after failure"
+            echo
+        else
+            print_error "Failed to recover MySQL service"
+            return 1
+        fi
+    else
+        print_warning "MySQL container is already running"
+    fi
+}
+
 # Function to monitor traffic script
 monitor_traffic() {
     local traffic_pid="$1"
@@ -167,6 +239,12 @@ cleanup() {
         start_redis || true
     fi
     
+    # Ensure MySQL is running for next time
+    if ! is_container_running "$MYSQL_CONTAINER_NAME"; then
+        print_status "Ensuring MySQL is running for next execution..."
+        start_mysql || true
+    fi
+    
     print_status "Cleanup complete"
 }
 
@@ -179,20 +257,23 @@ show_chaos_timeline() {
     echo "  📊 Phase 1: Normal Operations (0-${chaos_wait}s)"
     echo "      - Baseline telemetry collection"
     echo "      - All services healthy"
-    echo "      - Cache operations working"
+    echo "      - Cache and database operations working"
     echo
     echo "  💥 Phase 2: Chaos Introduction (${chaos_wait}s)"
     echo "      - Redis service failure"
-    echo "      - Cache errors and exceptions"
+    echo "      - MySQL service failure"
+    echo "      - Cache and database errors and exceptions"
     echo "      - Error trace generation"
     echo
     echo "  ⚡ Phase 3: Chaos Duration (${chaos_wait}-$((chaos_wait + CHAOS_DURATION))s)"
     echo "      - Service degradation patterns"
     echo "      - Fallback behavior traces"
     echo "      - Error propagation observation"
+    echo "      - Multi-service failure impact"
     echo
     echo "  🔧 Phase 4: Recovery ($((chaos_wait + CHAOS_DURATION))s)"
     echo "      - Redis service restoration"
+    echo "      - MySQL service restoration"
     echo "      - Connection recovery traces"
     echo "      - Service health improvement"
     echo
@@ -200,6 +281,7 @@ show_chaos_timeline() {
     echo "      - Performance comparison"
     echo "      - Complete trace analysis"
     echo "      - SLI/SLO impact assessment"
+    echo "      - Multi-service recovery patterns"
     echo
 }
 
@@ -209,7 +291,7 @@ main() {
     echo "  🎭 OpenTelemetry Chaos Engineering Script"
     echo "============================================================"
     echo "Purpose: Generate realistic failure scenarios for observability"
-    echo "Target: Redis cache failure during traffic generation"
+    echo "Target: Redis cache and MySQL database failures during traffic generation"
     echo "Traffic Script: $TRAFFIC_SCRIPT"
     echo "Chaos Window: ${MIN_WAIT_BEFORE_CHAOS}-${MAX_WAIT_BEFORE_CHAOS}s"
     echo "Chaos Duration: ${CHAOS_DURATION}s"
@@ -247,6 +329,13 @@ main() {
         exit 1
     fi
     
+    # Check if MySQL container exists
+    if ! docker ps -a --filter "name=${MYSQL_CONTAINER_NAME}" --format "{{.Names}}" | grep -q "^${MYSQL_CONTAINER_NAME}$"; then
+        print_error "MySQL container not found: $MYSQL_CONTAINER_NAME"
+        print_status "Make sure to run: docker-compose up -d"
+        exit 1
+    fi
+    
     # Ensure Redis is running
     if ! is_container_running "$REDIS_CONTAINER_NAME"; then
         print_status "Starting Redis container..."
@@ -258,6 +347,20 @@ main() {
             print_error "Redis is not responding, attempting restart..."
             docker restart "$REDIS_CONTAINER_NAME" > /dev/null 2>&1
             wait_for_redis
+        fi
+    fi
+    
+    # Ensure MySQL is running
+    if ! is_container_running "$MYSQL_CONTAINER_NAME"; then
+        print_status "Starting MySQL container..."
+        start_mysql
+    else
+        print_success "MySQL container is already running"
+        # Verify MySQL is actually responsive
+        if ! wait_for_mysql; then
+            print_error "MySQL is not responding, attempting restart..."
+            docker restart "$MYSQL_CONTAINER_NAME" > /dev/null 2>&1
+            wait_for_mysql
         fi
     fi
     
@@ -277,15 +380,17 @@ main() {
     # Wait for the chaos moment
     sleep "$chaos_wait"
     
-    # Introduce chaos (stop Redis)
+    # Introduce chaos (stop Redis and MySQL)
     stop_redis
+    stop_mysql
     
     # Let chaos run for specified duration
     print_status "⏱️  Chaos running for ${CHAOS_DURATION} seconds..."
     sleep "$CHAOS_DURATION"
     
-    # Recover Redis
+    # Recover services
     start_redis
+    start_mysql
     
     # Wait a bit more for recovery traces
     print_status "⏱️  Collecting recovery telemetry for ${RECOVERY_WAIT} seconds..."
@@ -309,14 +414,16 @@ main() {
     echo "  1. Compare trace performance before/during/after failure"
     echo "  2. Analyze error propagation patterns across services"
     echo "  3. Verify cache fallback behavior in traces"
-    echo "  4. Check exception correlation in spans"
-    echo "  5. Measure service recovery time"
+    echo "  4. Check database connection error patterns"
+    echo "  5. Check exception correlation in spans"
+    echo "  6. Measure service recovery time"
+    echo "  7. Analyze multi-service failure impact"
     echo
     echo "📊 View Results:"
     echo "  - Jaeger UI: http://localhost:16686"
     echo "  - BMC Platform: (your configured endpoint)"
-    echo "  - Filter by service: reviews-api"
-    echo "  - Search for: cache.error OR JedisConnectionException"
+    echo "  - Filter by service: reviews-api, books-api"
+    echo "  - Search for: cache.error OR JedisConnectionException OR SQLException"
     echo "============================================================"
 }
 
