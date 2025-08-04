@@ -24,7 +24,7 @@ exporters:
     endpoint: https://api-neodev1.aus-dsom-rke2-01.k8s.stackify.com
     headers:
       X-Api-Key: 463510059::F6BKK7X58QYJF3T16K8UC59J03VD4U::vbKces5aaJDM2O87rrAjItasFzrBwk0CB7vKUCe8KRfLcC620M
-      X-Source: bcx-aus-701e6d4.bmc.com
+      X-Source: reviews-dumpster-fire
     sending_queue:
       enabled: true
       num_consumers: 100
