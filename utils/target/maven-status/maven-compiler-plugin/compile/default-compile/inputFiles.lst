@@ -1,0 +1,3 @@
+/root/projects/opentelemetry-java-autoconfigure/utils/src/main/java/com/books/utils/opentelemetry/SpanErrorRecorder.java
+/root/projects/opentelemetry-java-autoconfigure/utils/src/main/java/com/books/utils/opentelemetry/OpenTelemetryExceptionResolver.java
+/root/projects/opentelemetry-java-autoconfigure/utils/src/main/java/com/books/utils/opentelemetry/OpenTelemetryErrorFilter.java

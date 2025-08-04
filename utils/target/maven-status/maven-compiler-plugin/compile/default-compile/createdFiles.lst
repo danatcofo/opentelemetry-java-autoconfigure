@@ -1,0 +1,3 @@
+com/books/utils/opentelemetry/SpanErrorRecorder.class
+com/books/utils/opentelemetry/OpenTelemetryExceptionResolver.class
+com/books/utils/opentelemetry/OpenTelemetryErrorFilter.class

@@ -18,8 +18,12 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 import redis.clients.jedis.exceptions.JedisConnectionException;
+import redis.clients.jedis.exceptions.JedisException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 
 import java.time.Duration;
+import java.util.Map;
+import io.opentelemetry.api.common.Attributes;
 
 @EnableCaching
 @Configuration
@@ -64,12 +68,22 @@ public class RedisConfig {
         return new CacheErrorHandler() {
             @Override
             public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
-                if (exception instanceof JedisConnectionException) {
+                // ✅ Handle ALL Redis-related exceptions
+                if (exception instanceof JedisConnectionException || 
+                    exception instanceof JedisException ||
+                    exception instanceof RedisConnectionFailureException ||
+                    exception.getCause() instanceof JedisConnectionException ||
+                    exception.getCause() instanceof JedisException) {
+                    
                     // ✅ Record exception on current span
                     Span currentSpan = Span.current();
                     currentSpan.recordException(exception);
-                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache get error");
-                    currentSpan.addEvent("cache.error.get");
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache get error: " + exception.getMessage());
+                    currentSpan.addEvent("cache.error.get", 
+                        Attributes.of(
+                            io.opentelemetry.api.common.AttributeKey.stringKey("cache"), cache.getName(),
+                            io.opentelemetry.api.common.AttributeKey.stringKey("key"), String.valueOf(key)
+                        ));
                     
                     // ✅ Structured logging with correlation
                     logger.error("Redis cache GET error for key: {} in cache: {}", key, cache.getName(), exception);
@@ -78,12 +92,22 @@ public class RedisConfig {
 
             @Override
             public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
-                if (exception instanceof JedisConnectionException) {
+                // ✅ Handle ALL Redis-related exceptions
+                if (exception instanceof JedisConnectionException || 
+                    exception instanceof JedisException ||
+                    exception instanceof RedisConnectionFailureException ||
+                    exception.getCause() instanceof JedisConnectionException ||
+                    exception.getCause() instanceof JedisException) {
+                    
                     // ✅ Record exception on current span  
                     Span currentSpan = Span.current();
                     currentSpan.recordException(exception);
-                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache put error");
-                    currentSpan.addEvent("cache.error.put");
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache put error: " + exception.getMessage());
+                    currentSpan.addEvent("cache.error.put", 
+                        Attributes.of(
+                            io.opentelemetry.api.common.AttributeKey.stringKey("cache"), cache.getName(),
+                            io.opentelemetry.api.common.AttributeKey.stringKey("key"), String.valueOf(key)
+                        ));
                     
                     // ✅ Structured logging with correlation
                     logger.error("Redis cache PUT error for key: {} in cache: {}", key, cache.getName(), exception);
@@ -92,12 +116,22 @@ public class RedisConfig {
 
             @Override
             public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
-                if (exception instanceof JedisConnectionException) {
+                // ✅ Handle ALL Redis-related exceptions
+                if (exception instanceof JedisConnectionException || 
+                    exception instanceof JedisException ||
+                    exception instanceof RedisConnectionFailureException ||
+                    exception.getCause() instanceof JedisConnectionException ||
+                    exception.getCause() instanceof JedisException) {
+                    
                     // ✅ Record exception on current span
                     Span currentSpan = Span.current();
                     currentSpan.recordException(exception);
-                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache evict error");
-                    currentSpan.addEvent("cache.error.evict");
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache evict error: " + exception.getMessage());
+                    currentSpan.addEvent("cache.error.evict", 
+                        Attributes.of(
+                            io.opentelemetry.api.common.AttributeKey.stringKey("cache"), cache.getName(),
+                            io.opentelemetry.api.common.AttributeKey.stringKey("key"), String.valueOf(key)
+                        ));
                     
                     // ✅ Structured logging with correlation
                     logger.error("Redis cache EVICT error for key: {} in cache: {}", key, cache.getName(), exception);
@@ -106,12 +140,21 @@ public class RedisConfig {
 
             @Override
             public void handleCacheClearError(RuntimeException exception, Cache cache) {
-                if (exception instanceof JedisConnectionException) {
+                // ✅ Handle ALL Redis-related exceptions
+                if (exception instanceof JedisConnectionException || 
+                    exception instanceof JedisException ||
+                    exception instanceof RedisConnectionFailureException ||
+                    exception.getCause() instanceof JedisConnectionException ||
+                    exception.getCause() instanceof JedisException) {
+                    
                     // ✅ Record exception on current span
                     Span currentSpan = Span.current();
                     currentSpan.recordException(exception);
-                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache clear error");
-                    currentSpan.addEvent("cache.error.clear");
+                    currentSpan.setStatus(StatusCode.ERROR, "Redis cache clear error: " + exception.getMessage());
+                    currentSpan.addEvent("cache.error.clear", 
+                        Attributes.of(
+                            io.opentelemetry.api.common.AttributeKey.stringKey("cache"), cache.getName()
+                        ));
                     
                     // ✅ Structured logging with correlation
                     logger.error("Redis cache CLEAR error in cache: {}", cache.getName(), exception);

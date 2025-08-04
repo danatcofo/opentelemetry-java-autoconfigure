@@ -1,12 +1,17 @@
-FROM fidelissauro/apko-jdk21:latest-arm64
+FROM openjdk:21-jdk-slim
 
 WORKDIR /app
 
-COPY .mvn .mvn
-COPY mvnw .
-COPY pom.xml .
-COPY src src
+COPY gateway/.mvn .mvn
+COPY gateway/mvnw .
+COPY gateway/pom.xml .
+COPY gateway/src src
 
+# Copy and build utils project first
+COPY utils ./utils
+RUN cd utils && ./mvnw clean install
+
+# Now build the main project
 RUN ./mvnw clean package
 
 
