@@ -50,10 +50,13 @@ services:
       - "6379:6379"
 
   spring-gateway:
-    build: ./gateway
+    build:
+      context: .
+      dockerfile: ./gateway/Dockerfile
     pull_policy: build
     environment: 
       OTEL_SERVICE_NAME: spring-gateway
+      OTEL_SERVICE_NAMESPACE: reviews-dumpster-fire
       OTEL_TRACES_EXPORTER: otlp
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -67,10 +70,13 @@ services:
       - otel-collector      
 
   books-api:
-    build: ./books
+    build:
+      context: .
+      dockerfile: ./books/Dockerfile
     pull_policy: build
     environment: 
       OTEL_SERVICE_NAME: books-api
+      OTEL_SERVICE_NAMESPACE: reviews-dumpster-fire
       OTEL_TRACES_EXPORTER: otlp
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -80,8 +86,8 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/books"
       SPRING_DATASOURCE_USERNAME: "books"
       SPRING_DATASOURCE_PASSWORD: "doutorequemtemdoutorado"
-      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: false
-      SPRING_JPA_SHOW_SQL: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "false"
+      SPRING_JPA_SHOW_SQL: "true"
     ports:
       - "8090:8080"
     depends_on:
@@ -89,10 +95,13 @@ services:
       - otel-collector
 
   reviews-api:
-    build: ./review
+    build:
+      context: .
+      dockerfile: ./review/Dockerfile
     pull_policy: build
     environment: 
       OTEL_SERVICE_NAME: reviews-api
+      OTEL_SERVICE_NAMESPACE: reviews-dumpster-fire
       OTEL_TRACES_EXPORTER: otlp
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -102,8 +111,8 @@ services:
       SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-reviews:3306/reviews"
       SPRING_DATASOURCE_USERNAME: "reviews"
       SPRING_DATASOURCE_PASSWORD: "doutorequemtemdoutorado"
-      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: false
-      SPRING_JPA_SHOW_SQL: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "false"
+      SPRING_JPA_SHOW_SQL: "true"
       SPRING_REDIS_HOST: "redis"
       SPRING_REDIS_PORT: "6379"
       REVIEWS_BOOKS_ENDPOINT: "http://books-api:8080"

@@ -31,22 +31,21 @@ exporters:
       queue_size: 10000
     compression: gzip
   
-  logging:
-    loglevel: debug
+  debug:
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlp/jaeger, logging, otlphttp/neodev1]
+      exporters: [otlp/jaeger, debug, otlphttp/neodev1]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/neodev1]
+      exporters: [otlphttp/neodev1, debug]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/neodev1]
+      exporters: [otlphttp/neodev1, debug]
   
   extensions: [] 
